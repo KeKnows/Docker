@@ -1,0 +1,9 @@
+# Backend Tests
+cd backend
+npm install
+npm test
+
+# Frontend Tests
+cd frontend
+npm install
+npm test
