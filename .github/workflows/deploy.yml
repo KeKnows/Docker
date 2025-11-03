@@ -1,5 +1,5 @@
 name: Recipe App CI/CD Pipeline
-
+npm help ci
 on:
   push:
     branches: [ main ]
