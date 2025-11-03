@@ -1,106 +1,107 @@
-jobs:
-  test-and-deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-
-      # Install backend dependencies including sqlite3
-      - name: Install backend dependencies
-        working-directory: ./backend
-        run: npm ci
-
-      # Install frontend dependencies
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      # Run backend tests
-      - name: Run backend tests
-        working-directory: ./backend
-        run: npm test
-
-      # Run frontend tests
-      - name: Run frontend tests
-        working-directory: ./frontend
-        run: npm test
-
-      # Authenticate to Google Cloud
-      - name: Authenticate to Google Cloud
-        if: success()
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      # Set up Google Cloud CLI
-      - name: Set up Google Cloud CLI
-        if: success()
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      # Configure Docker for Google Cloud
-      - name: Configure Docker for Google Cloud
-        if: success()
-        run: gcloud auth configure-docker
-
-      # Build and push backend image
-      - name: Build and push backend image
-        if: success()
-        working-directory: ./backend
-        run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }}
-
-      # Build and push frontend image
-      - name: Build and push frontend image
-        if: success()
-        working-directory: ./frontend
-        run: |
-          BACKEND_URL=$(gcloud run services describe recipe-backend --region=${{ secrets.GCP_REGION }} --format='value(status.url)' 2>/dev/null || echo "https://recipe-backend-placeholder.run.app")
-          docker build --build-arg VITE_API_URL=$BACKEND_URL -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }}
-
-      # Deploy backend to Cloud Run
-      - name: Deploy backend to Cloud Run
-        if: success()
-        run: |
-          gcloud run deploy recipe-backend \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 5000 \
-            --memory 512Mi \
-            --cpu 1
-
-      # Deploy frontend to Cloud Run
-      - name: Deploy frontend to Cloud Run
-        if: success()
-        run: |
-          gcloud run deploy recipe-frontend \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }} \
-            --region ${{ secrets.GCP_REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 80 \
-            --memory 512Mi \
-            --cpu 1
-
-      # Get deployed URLs
-      - name: Get deployed URLs
-        if: success()
-        run: |
-          echo "Backend URL: $(gcloud run services describe recipe-backend --region=${{ secrets.GCP_REGION }} --format='value(status.url)')"
-          echo "Frontend URL: $(gcloud run services describe recipe-frontend --region=${{ secrets.GCP_REGION }} --format='value(status.url)')"
+on:
+  jobs:
+    test-and-deploy:
+      runs-on: ubuntu-latest
+      
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v4
+  
+        - name: Set up Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '18'
+            cache: 'npm'
+            cache-dependency-path: |
+              backend/package-lock.json
+              frontend/package-lock.json
+  
+        # Install backend dependencies including sqlite3
+        - name: Install backend dependencies
+          working-directory: ./backend
+          run: npm ci
+  
+        # Install frontend dependencies
+        - name: Install frontend dependencies
+          working-directory: ./frontend
+          run: npm ci
+  
+        # Run backend tests
+        - name: Run backend tests
+          working-directory: ./backend
+          run: npm test
+  
+        # Run frontend tests
+        - name: Run frontend tests
+          working-directory: ./frontend
+          run: npm test
+  
+        # Authenticate to Google Cloud
+        - name: Authenticate to Google Cloud
+          if: success()
+          uses: google-github-actions/auth@v1
+          with:
+            credentials_json: ${{ secrets.GCP_SA_KEY }}
+            project_id: ${{ secrets.GCP_PROJECT_ID }}
+  
+        # Set up Google Cloud CLI
+        - name: Set up Google Cloud CLI
+          if: success()
+          uses: google-github-actions/setup-gcloud@v1
+          with:
+            project_id: ${{ secrets.GCP_PROJECT_ID }}
+  
+        # Configure Docker for Google Cloud
+        - name: Configure Docker for Google Cloud
+          if: success()
+          run: gcloud auth configure-docker
+  
+        # Build and push backend image
+        - name: Build and push backend image
+          if: success()
+          working-directory: ./backend
+          run: |
+            docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }} .
+            docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }}
+  
+        # Build and push frontend image
+        - name: Build and push frontend image
+          if: success()
+          working-directory: ./frontend
+          run: |
+            BACKEND_URL=$(gcloud run services describe recipe-backend --region=${{ secrets.GCP_REGION }} --format='value(status.url)' 2>/dev/null || echo "https://recipe-backend-placeholder.run.app")
+            docker build --build-arg VITE_API_URL=$BACKEND_URL -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }} .
+            docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }}
+  
+        # Deploy backend to Cloud Run
+        - name: Deploy backend to Cloud Run
+          if: success()
+          run: |
+            gcloud run deploy recipe-backend \
+              --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-backend:${{ github.sha }} \
+              --region ${{ secrets.GCP_REGION }} \
+              --platform managed \
+              --allow-unauthenticated \
+              --port 5000 \
+              --memory 512Mi \
+              --cpu 1
+  
+        # Deploy frontend to Cloud Run
+        - name: Deploy frontend to Cloud Run
+          if: success()
+          run: |
+            gcloud run deploy recipe-frontend \
+              --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/recipe-frontend:${{ github.sha }} \
+              --region ${{ secrets.GCP_REGION }} \
+              --platform managed \
+              --allow-unauthenticated \
+              --port 80 \
+              --memory 512Mi \
+              --cpu 1
+  
+        # Get deployed URLs
+        - name: Get deployed URLs
+          if: success()
+          run: |
+            echo "Backend URL: $(gcloud run services describe recipe-backend --region=${{ secrets.GCP_REGION }} --format='value(status.url)')"
+            echo "Frontend URL: $(gcloud run services describe recipe-frontend --region=${{ secrets.GCP_REGION }} --format='value(status.url)')"
